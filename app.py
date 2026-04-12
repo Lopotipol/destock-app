@@ -63,14 +63,115 @@ PAGES = {
 
 
 def _render_dashboard() -> None:
-    """Placeholder du tableau de bord (sera developpe au Module suivant)."""
+    """Tableau de bord : vue d'ensemble temps reel."""
+    from datetime import datetime
+    from database import Article, Annonce, Vente, Lot, get_session
+
     st.title("Tableau de bord")
-    st.info("Module en construction - vue d'ensemble des lots, ventes et alertes.")
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Lots actifs", "-")
-    col2.metric("Articles en stock", "-")
-    col3.metric("CA du mois", "-")
-    col4.metric("Alertes non lues", "-")
+
+    session = get_session()
+    try:
+        # Donnees de base
+        now = datetime.utcnow()
+        debut_mois = datetime(now.year, now.month, 1)
+
+        all_articles = session.query(Article).all()
+        en_stock = [a for a in all_articles if a.statut == "en_stock"]
+        ventes_mois = session.query(Vente).filter(Vente.date_vente >= debut_mois).all()
+        ca_mois = sum(v.prix_vente or 0 for v in ventes_mois)
+        benef_mois = sum(
+            (v.prix_vente or 0)
+            - (session.query(Article).filter_by(id=v.article_id).first().cout_reel or 0)
+            for v in ventes_mois
+            if session.query(Article).filter_by(id=v.article_id).first()
+        )
+
+        # --- LIGNE 1 : Metriques principales ---
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Articles en stock", len(en_stock))
+        m2.metric("Vendus ce mois", len(ventes_mois))
+        m3.metric("CA du mois", f"{ca_mois:,.0f} EUR")
+        m4.metric("Benefice du mois", f"{benef_mois:,.0f} EUR")
+
+        st.divider()
+
+        # --- LIGNE 2 : Alertes & actions urgentes ---
+        st.markdown("**Actions urgentes**")
+        stock_mort = sum(
+            1 for a in en_stock
+            if a.date_reception and (now - a.date_reception).days > 30
+        )
+        annonces_gen = session.query(Annonce).filter_by(statut="generee").count()
+        annonces_pub = sum(1 for a in all_articles if a.statut == "annonce_publiee")
+
+        a1, a2, a3, a4 = st.columns(4)
+        a1.metric("Stock mort (+30j)", stock_mort)
+        a2.metric("Annonces a publier", annonces_gen)
+        a3.metric("Ventes a enregistrer", annonces_pub)
+        nb_lots = session.query(Lot).count()
+        a4.metric("Lots en base", nb_lots)
+
+        st.divider()
+
+        # --- LIGNE 3 : Activite recente ---
+        st.markdown("**Activite recente**")
+        ventes_recentes = (
+            session.query(Vente)
+            .order_by(Vente.date_vente.desc())
+            .limit(5)
+            .all()
+        )
+        if ventes_recentes:
+            for v in ventes_recentes:
+                art = session.query(Article).filter_by(id=v.article_id).first()
+                desc = (art.description or "")[:45] if art else "?"
+                date_str = v.date_vente.strftime("%d/%m") if v.date_vente else ""
+                st.caption(
+                    f"- {desc} — **{v.prix_vente or 0:,.0f} EUR** "
+                    f"via {v.canal or '?'} ({date_str})"
+                )
+        else:
+            st.caption("Aucune vente enregistree.")
+
+        st.divider()
+
+        # --- LIGNE 4 : Stock par etat ---
+        st.markdown("**Stock par etat**")
+        conditions: dict[str, int] = {}
+        for a in en_stock:
+            c = a.condition or "Autre"
+            conditions[c] = conditions.get(c, 0) + 1
+        total_stock = len(en_stock) or 1
+        cols = st.columns(len(conditions) or 1)
+        for i, (cond, count) in enumerate(sorted(conditions.items(), key=lambda x: -x[1])):
+            with cols[i % len(cols)]:
+                st.metric(cond, count)
+                st.progress(count / total_stock)
+
+    finally:
+        session.close()
+
+    st.divider()
+
+    # --- LIGNE 5 : Raccourcis rapides ---
+    st.markdown("**Raccourcis**")
+    r1, r2, r3, r4 = st.columns(4)
+    with r1:
+        if st.button("Analyser un lot B-Stock", use_container_width=True, key="dash_marketplace"):
+            st.session_state["sidebar_nav"] = "Marketplace B-Stock"
+            st.rerun()
+    with r2:
+        if st.button("Generer une annonce", use_container_width=True, key="dash_annonces"):
+            st.session_state["sidebar_nav"] = "Annonces"
+            st.rerun()
+    with r3:
+        if st.button("Enregistrer une vente", use_container_width=True, key="dash_stock"):
+            st.session_state["sidebar_nav"] = "Stock & Articles"
+            st.rerun()
+    with r4:
+        if st.button("Voir P&L", use_container_width=True, key="dash_pnl"):
+            st.session_state["sidebar_nav"] = "P&L / Finances"
+            st.rerun()
 
 
 def _render_sidebar() -> str:
