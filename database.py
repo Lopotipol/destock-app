@@ -8,6 +8,7 @@ cree les tables manquantes et injecte les valeurs par defaut (parametres
 + utilisateurs Paul / Mael).
 """
 
+import os
 from datetime import datetime
 
 from sqlalchemy import (
@@ -23,12 +24,17 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
-from config import DATABASE_URL, DEFAULT_PARAMETRES
+from config import DEFAULT_PARAMETRES
 
 # ---------------------------------------------------------------------------
 # Moteur SQLAlchemy
 # ---------------------------------------------------------------------------
-# `check_same_thread=False` uniquement pour SQLite (Streamlit fait du multi-thread).
+# DATABASE_URL depuis variable d'environnement (PostgreSQL en prod, SQLite en local)
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///destock.db")
+# Render/Railway exposent parfois postgres:// au lieu de postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
 engine = create_engine(DATABASE_URL, connect_args=_connect_args, future=True)
