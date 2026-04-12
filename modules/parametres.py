@@ -261,9 +261,17 @@ def _section_connexions_api() -> None:
             set_param("api_ebay_key", ebay_key)
             st.success("Connexions mises a jour.")
 
-    # Setup du profil Chrome B-Stock (connexion manuelle initiale)
+    # Setup du profil Chrome B-Stock (uniquement en local, pas en cloud)
     st.markdown("---")
     st.markdown("**Profil Chrome B-Stock**")
+
+    import os
+    if os.environ.get("ENVIRONMENT") == "cloud":
+        st.info(
+            "Configuration Chrome disponible uniquement sur l'application locale. "
+            "Utilisez l'upload CSV manuel dans Marketplace pour analyser un lot."
+        )
+        return
 
     # Import tardif pour eviter de charger Playwright au demarrage de l'app
     from scrapers import bstock as bstock_scraper
