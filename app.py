@@ -216,16 +216,27 @@ def _render_sidebar() -> str:
     """Construit la sidebar et retourne la page selectionnee."""
     # Import tardif pour eviter de charger Playwright au demarrage
     from scrapers import bstock as bstock_scraper
+    from modules.parametres import get_param
 
     with st.sidebar:
         st.markdown("## DeStock App")
         st.caption(f"Connecte en tant que **{current_user_nom()}**")
 
-        # Indicateur d'etat du profil B-Stock
-        if bstock_scraper.is_profile_configured():
-            st.success("B-Stock : connecte", icon=None)
+        # Indicateur d'etat B-Stock :
+        #   - En cloud : l'API HTTP suffit (listing des lots). Chrome n'existe pas.
+        #     On considere "connecte" si les identifiants B-Stock sont en base.
+        #   - En local : le profil Chrome est requis pour telecharger les CSV.
+        is_cloud = os.environ.get("ENVIRONMENT") == "cloud"
+        if is_cloud:
+            if get_param("api_bstock_email", ""):
+                st.success("B-Stock : API connectee")
+            else:
+                st.warning("B-Stock : identifiants non configures")
         else:
-            st.error("B-Stock : non configure", icon=None)
+            if bstock_scraper.is_profile_configured():
+                st.success("B-Stock : connecte", icon=None)
+            else:
+                st.error("B-Stock : non configure", icon=None)
 
         st.divider()
 
