@@ -7,13 +7,7 @@ Point d'entree Streamlit :
   - affiche la navigation sidebar et route vers chaque module
 """
 
-import os
 import streamlit as st
-
-# Configuration cloud (Railway, Render, etc.)
-if os.environ.get("ENVIRONMENT") == "cloud":
-    st.set_option("server.enableCORS", False)
-    st.set_option("server.enableXsrfProtection", False)
 
 from database import init_db
 from auth import (
