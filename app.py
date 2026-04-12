@@ -23,10 +23,16 @@ from auth import (
 def init_env_params() -> None:
     """
     Au demarrage sur Render/Railway, lit les variables d'environnement
-    et les sauvegarde en base si elles ne sont pas deja configurees.
-    Les cles correspondent a celles utilisees dans l'app.
+    et les ecrit dans la table parametres avec les cles exactes lues
+    par les modules (verifiees via grep get_param) :
+      - api_bstock_email / api_bstock_password
+      - api_telegram_token / api_telegram_chat_id
+      - api_anthropic_key
+
+    Ecrase systematiquement la valeur en base pour corriger d'eventuelles
+    cles mal nommees lors d'un run precedent.
     """
-    from modules.parametres import get_param, set_param
+    from modules.parametres import set_param
 
     mappings = {
         "BSTOCK_EMAIL":      "api_bstock_email",
@@ -37,8 +43,9 @@ def init_env_params() -> None:
     }
     for env_key, param_key in mappings.items():
         env_val = os.environ.get(env_key)
-        if env_val and not get_param(param_key, ""):
+        if env_val:
             set_param(param_key, env_val)
+            print(f"Set {param_key} from env")
 
 # Modules metier (tous importes, meme les placeholders)
 from modules import (
