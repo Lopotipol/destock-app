@@ -7,6 +7,8 @@ Point d'entree Streamlit :
   - affiche la navigation sidebar et route vers chaque module
 """
 
+import os
+
 import streamlit as st
 
 from database import init_db
@@ -16,6 +18,27 @@ from auth import (
     is_logged_in,
     current_user_nom,
 )
+
+
+def init_env_params() -> None:
+    """
+    Au demarrage sur Render/Railway, lit les variables d'environnement
+    et les sauvegarde en base si elles ne sont pas deja configurees.
+    Les cles correspondent a celles utilisees dans l'app.
+    """
+    from modules.parametres import get_param, set_param
+
+    mappings = {
+        "BSTOCK_EMAIL":      "api_bstock_email",
+        "BSTOCK_PASSWORD":   "api_bstock_password",
+        "TELEGRAM_TOKEN":    "api_telegram_token",
+        "TELEGRAM_CHAT_ID":  "api_telegram_chat_id",
+        "ANTHROPIC_API_KEY": "api_anthropic_key",
+    }
+    for env_key, param_key in mappings.items():
+        env_val = os.environ.get(env_key)
+        if env_val and not get_param(param_key, ""):
+            set_param(param_key, env_val)
 
 # Modules metier (tous importes, meme les placeholders)
 from modules import (
@@ -41,6 +64,9 @@ st.set_page_config(
 
 # Initialisation de la base (cree tables + parametres + users par defaut)
 init_db()
+
+# Seed des parametres depuis les variables d'environnement (cloud first run)
+init_env_params()
 
 # Monitoring automatique des alertes (1x par session, non-bloquant)
 from modules.alertes import run_monitoring
