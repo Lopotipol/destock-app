@@ -7,11 +7,76 @@ Toutes les valeurs sont persistees dans la table `parametres` (cle/valeur).
 Les helpers `get_param` / `set_param` assurent la lecture/ecriture.
 """
 
+import io
+import json
+import zipfile
+
 import streamlit as st
 
 from auth import change_password, current_user_id, current_user_nom
 from config import CATEGORIES_BSTOCK, STATUTS_JURIDIQUES
 from database import Parametre, get_session
+
+
+# ---------------------------------------------------------------------------
+# Sauvegarde & Restauration (ZIP + JSON)
+# ---------------------------------------------------------------------------
+def export_backup() -> bytes:
+    """Exporte toutes les donnees metier dans un ZIP contenant backup.json."""
+    from database import Lot, Article, Vente, Annonce, Template
+    s = get_session()
+    data = {}
+    try:
+        for model, key in [
+            (Lot, "lots"),
+            (Article, "articles"),
+            (Vente, "ventes"),
+            (Annonce, "annonces"),
+            (Parametre, "parametres"),
+            (Template, "templates"),
+        ]:
+            rows = s.query(model).all()
+            data[key] = [
+                {c.name: getattr(r, c.name) for c in r.__table__.columns}
+                for r in rows
+            ]
+    finally:
+        s.close()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("backup.json", json.dumps(data, default=str, ensure_ascii=False))
+    return buf.getvalue()
+
+
+def import_backup(zip_bytes: bytes) -> dict:
+    """Importe un ZIP de backup. Retourne {table: nb_lignes_importees}."""
+    from database import Lot, Article, Vente, Annonce, Template
+    buf = io.BytesIO(zip_bytes)
+    with zipfile.ZipFile(buf, "r") as z:
+        data = json.loads(z.read("backup.json"))
+    s = get_session()
+    counts: dict[str, int] = {}
+    try:
+        for model, key in [
+            (Lot, "lots"),
+            (Article, "articles"),
+            (Vente, "ventes"),
+            (Annonce, "annonces"),
+            (Parametre, "parametres"),
+            (Template, "templates"),
+        ]:
+            n = 0
+            for row in data.get(key, []):
+                try:
+                    s.merge(model(**row))
+                    n += 1
+                except Exception:
+                    pass
+            counts[key] = n
+        s.commit()
+    finally:
+        s.close()
+    return counts
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +321,47 @@ def _section_compte() -> None:
             else:
                 ok, message = change_password(current_user_id(), ancien, nouveau)
                 (st.success if ok else st.error)(message)
+
+    # --- Sauvegarde & Restauration ---
+    st.divider()
+    st.subheader("Sauvegarde & Restauration")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.write("Exportez toutes vos donnees locales")
+        if st.button("Exporter mes donnees", use_container_width=True, key="bkp_export"):
+            st.session_state["bkp_data"] = export_backup()
+        if st.session_state.get("bkp_data"):
+            st.download_button(
+                "Telecharger destock_backup.zip",
+                data=st.session_state["bkp_data"],
+                file_name="destock_backup.zip",
+                mime="application/zip",
+                key="dl_backup",
+                use_container_width=True,
+            )
+
+    with col2:
+        st.write("Importez sur un autre appareil")
+        uploaded = st.file_uploader(
+            "Choisir destock_backup.zip",
+            type=["zip"],
+            key="up_backup",
+        )
+        if uploaded is not None:
+            if st.button("Importer les donnees", use_container_width=True, key="bkp_import"):
+                try:
+                    counts = import_backup(uploaded.read())
+                    st.success(
+                        f"Importe : {counts.get('lots', 0)} lots, "
+                        f"{counts.get('articles', 0)} articles, "
+                        f"{counts.get('ventes', 0)} ventes, "
+                        f"{counts.get('annonces', 0)} annonces, "
+                        f"{counts.get('templates', 0)} templates."
+                    )
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Erreur import : {type(exc).__name__}: {exc}")
 
 
 # ---------------------------------------------------------------------------
