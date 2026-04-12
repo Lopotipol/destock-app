@@ -155,23 +155,28 @@ def _render_dashboard() -> None:
 
     # --- LIGNE 5 : Raccourcis rapides ---
     st.markdown("**Raccourcis**")
+
+    def go_marketplace():
+        st.session_state["sidebar_nav"] = "Marketplace B-Stock"
+
+    def go_annonces():
+        st.session_state["sidebar_nav"] = "Annonces"
+
+    def go_stock():
+        st.session_state["sidebar_nav"] = "Stock & Articles"
+
+    def go_pnl():
+        st.session_state["sidebar_nav"] = "P&L / Finances"
+
     r1, r2, r3, r4 = st.columns(4)
     with r1:
-        if st.button("Analyser un lot B-Stock", use_container_width=True, key="dash_marketplace"):
-            st.session_state["sidebar_nav"] = "Marketplace B-Stock"
-            st.rerun()
+        st.button("Analyser un lot", on_click=go_marketplace, use_container_width=True, key="dash_marketplace")
     with r2:
-        if st.button("Generer une annonce", use_container_width=True, key="dash_annonces"):
-            st.session_state["sidebar_nav"] = "Annonces"
-            st.rerun()
+        st.button("Generer une annonce", on_click=go_annonces, use_container_width=True, key="dash_annonces")
     with r3:
-        if st.button("Enregistrer une vente", use_container_width=True, key="dash_stock"):
-            st.session_state["sidebar_nav"] = "Stock & Articles"
-            st.rerun()
+        st.button("Enregistrer une vente", on_click=go_stock, use_container_width=True, key="dash_stock")
     with r4:
-        if st.button("Voir P&L", use_container_width=True, key="dash_pnl"):
-            st.session_state["sidebar_nav"] = "P&L / Finances"
-            st.rerun()
+        st.button("Voir P&L", on_click=go_pnl, use_container_width=True, key="dash_pnl")
 
 
 def _render_sidebar() -> str:
