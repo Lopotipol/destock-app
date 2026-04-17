@@ -250,8 +250,8 @@ def _tab_livraisons() -> None:
 # Entree principale
 # =========================================================================
 def render() -> None:
-    st.title("Encheres & Lots")
-    tab1, tab2, tab3 = st.tabs(["Mes lots", "Ajouter un lot", "Suivi livraisons"])
+    st.title("Mes achats")
+    tab1, tab2, tab3 = st.tabs(["Mes commandes", "Ajouter manuellement", "Livraisons en cours"])
     with tab1:
         _tab_mes_lots()
     with tab2:

@@ -305,10 +305,10 @@ def _tab_vue_stock() -> None:
 
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("En stock", len(en_stock))
-    c2.metric("Vendus ce mois", len(vendus_mois))
-    c3.metric("CA encaisse (mois)", f"{ca_mois:,.0f} EUR")
-    c4.metric("Benefice reel", f"{benef_reel:,.0f} EUR")
-    c5.metric("Stock mort (+30j)", len(stock_mort))
+    c2.metric("Ventes ce mois", len(vendus_mois))
+    c3.metric("Revenus (mois)", f"{ca_mois:,.0f} EUR")
+    c4.metric("Gains reels", f"{benef_reel:,.0f} EUR")
+    c5.metric("Invendus longue duree", len(stock_mort))
 
     # Filtres
     with st.expander("Filtres", expanded=False):
@@ -382,7 +382,7 @@ def _tab_vue_stock() -> None:
             art = arts_en_stock[idx]
             col_v, col_b = st.columns(2)
             with col_v:
-                if st.button("Marquer vendu", use_container_width=True, type="primary", key="stk_marquer_vendu"):
+                if st.button("Vente confirmee", use_container_width=True, type="primary", key="stk_marquer_vendu"):
                     st.session_state["stk_vente_article_id"] = art["id"]
                     st.info("Remplis le formulaire dans l'onglet 'Enregistrer une vente'.")
             with col_b:
@@ -516,9 +516,9 @@ def _tab_performance() -> None:
     jours_moy = round(sum(a["jours"] for a in articles_vendus) / len(articles_vendus), 1)
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("CA total encaisse", f"{ca:,.0f} EUR")
-    c2.metric("Benefice net total", f"{benef_total:,.0f} EUR")
-    c3.metric("Marge moyenne", f"{marge_moy:.1f}%")
+    c1.metric("Revenus totaux", f"{ca:,.0f} EUR")
+    c2.metric("Gains", f"{benef_total:,.0f} EUR")
+    c3.metric("Rentabilite moyenne", f"{marge_moy:.1f}%")
     c4.metric("Nb ventes", len(articles_vendus))
     c5.metric("Vitesse moy. (jours)", f"{jours_moy:.0f}j")
 
@@ -545,8 +545,8 @@ def _tab_performance() -> None:
 # Entree principale
 # =========================================================================
 def render() -> None:
-    st.title("Stock & Articles")
-    tab_stock, tab_vente, tab_perf = st.tabs(["Vue stock", "Enregistrer une vente", "Performance"])
+    st.title("Mon stock")
+    tab_stock, tab_vente, tab_perf = st.tabs(["Mon inventaire", "Nouvelle vente", "Statistiques"])
     with tab_stock:
         _tab_vue_stock()
     with tab_vente:

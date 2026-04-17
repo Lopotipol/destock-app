@@ -185,8 +185,8 @@ def _tab_historique() -> None:
 # Entree principale
 # =========================================================================
 def render() -> None:
-    st.title("Alertes")
-    tab_cfg, tab_hist = st.tabs(["Configuration", "Historique alertes"])
+    st.title("Notifications")
+    tab_cfg, tab_hist = st.tabs(["Reglages alertes", "Historique"])
     with tab_cfg:
         _tab_config()
     with tab_hist:

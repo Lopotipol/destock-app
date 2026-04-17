@@ -203,11 +203,11 @@ def calculate_score(lot: dict, params: dict) -> dict:
 # ONGLET 1 — Lots disponibles
 # =========================================================================
 def _tab_lots_disponibles() -> None:
-    st.subheader("Lots disponibles - Europe")
+    st.subheader("Encheres en cours")
 
     col_btn, col_info = st.columns([1, 3])
     with col_btn:
-        if st.button("Actualiser les lots", use_container_width=True):
+        if st.button("Actualiser", use_container_width=True):
             with st.spinner("Appel API B-Stock..."):
                 try:
                     lots = bstock.get_lots_europe(max_lots=200, page_size=50)
@@ -265,8 +265,8 @@ def _tab_lots_disponibles() -> None:
             "Score": st.column_config.ProgressColumn(
                 "Score", min_value=0, max_value=100, format="%d",
             ),
-            "Enchere":  st.column_config.NumberColumn("Enchere EUR", format="%.0f"),
-            "Retail":   st.column_config.NumberColumn("Retail EUR", format="%.0f"),
+            "Enchere":  st.column_config.NumberColumn("Enchere", format="%.0f EUR"),
+            "Retail":   st.column_config.NumberColumn("Valeur neuf", format="%.0f EUR"),
             "Ratio %":  st.column_config.NumberColumn(format="%.1f %%"),
             "EUR/art":  st.column_config.NumberColumn(format="%.2f"),
             "URL":      st.column_config.LinkColumn("B-Stock", display_text="Ouvrir"),
@@ -877,7 +877,7 @@ def _render_actions(lot: dict, articles: list[dict]) -> None:
             except Exception as exc:
                 st.error(str(exc))
     with c3:
-        if st.button("Importer en stock", use_container_width=True, type="primary"):
+        if st.button("Ajouter au stock", use_container_width=True, type="primary"):
             st.session_state["mk_show_import_form"] = True
 
     # Formulaire d'import avec saisie des vrais couts
@@ -1018,8 +1018,8 @@ def _persist_lot(lot: dict, articles: list[dict], statut: str, with_articles: bo
 # Entree principale
 # ---------------------------------------------------------------------------
 def render() -> None:
-    st.title("Marketplace B-Stock")
-    tab_lots, tab_detail = st.tabs(["Lots disponibles", "Analyser un lot"])
+    st.title("Trouver un lot")
+    tab_lots, tab_detail = st.tabs(["Lots en cours", "Analyser un lot"])
     with tab_lots:
         _tab_lots_disponibles()
     with tab_detail:

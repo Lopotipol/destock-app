@@ -91,10 +91,10 @@ def _tab_vue_globale() -> None:
 
     # --- Metriques principales ---
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("CA total encaisse", f"{ca_total:,.0f} EUR")
-    m2.metric("Cout total investi", f"{cout_investi:,.0f} EUR")
-    m3.metric("Benefice net", f"{benef_net:,.0f} EUR")
-    m4.metric("Marge nette", f"{marge_nette:.1f}%")
+    m1.metric("Revenus totaux", f"{ca_total:,.0f} EUR")
+    m2.metric("Investissement total", f"{cout_investi:,.0f} EUR")
+    m3.metric("Gains", f"{benef_net:,.0f} EUR")
+    m4.metric("Rentabilite", f"{marge_nette:.1f}%")
     # Cash disponible estime = CA - couts - charges fiscales estimees
     statut_jur = get_param("profil_statut", "Aucun")
     charges_est = ca_total * 0.22 if statut_jur == "Auto-entrepreneur" else 0
@@ -103,9 +103,9 @@ def _tab_vue_globale() -> None:
     m5, m6, m7, m8 = st.columns(4)
     m5.metric("Articles vendus", nb_vendus)
     m6.metric("Articles en stock", nb_en_stock)
-    m7.metric("Cash engage", f"{cash_engage:,.0f} EUR")
+    m7.metric("Capital investi", f"{cash_engage:,.0f} EUR")
     color = "normal" if cash_dispo >= 500 else ("off" if cash_dispo >= 0 else "inverse")
-    m8.metric("Cash disponible", f"{cash_dispo:,.0f} EUR", delta_color=color)
+    m8.metric("Disponible", f"{cash_dispo:,.0f} EUR", delta_color=color)
 
     # --- CA par semaine ---
     st.divider()
@@ -224,10 +224,10 @@ def _tab_par_lot() -> None:
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Cout total": st.column_config.NumberColumn(format="%.0f EUR"),
-            "CA encaisse": st.column_config.NumberColumn(format="%.0f EUR"),
-            "Benefice": st.column_config.NumberColumn(format="%.0f EUR"),
-            "Marge %": st.column_config.NumberColumn(format="%.1f %%"),
+            "Cout total": st.column_config.NumberColumn("Investissement", format="%.0f EUR"),
+            "CA encaisse": st.column_config.NumberColumn("Revenus", format="%.0f EUR"),
+            "Benefice": st.column_config.NumberColumn("Gains", format="%.0f EUR"),
+            "Marge %": st.column_config.NumberColumn("Rentabilite %", format="%.1f %%"),
             "Liquidation %": st.column_config.ProgressColumn(
                 "Liquidation", min_value=0, max_value=100, format="%.0f%%",
             ),
@@ -275,7 +275,7 @@ def _tab_projection() -> None:
     pct = round(ca_mois / objectif * 100, 1) if objectif > 0 else 0
 
     oc1, oc2 = st.columns(2)
-    oc1.metric("CA ce mois", f"{ca_mois:,.0f} EUR")
+    oc1.metric("Revenus ce mois", f"{ca_mois:,.0f} EUR")
     oc2.metric("Progression", f"{pct:.1f}%")
     st.progress(min(pct / 100, 1.0), text=f"{pct:.1f}% de l'objectif ({objectif:,.0f} EUR)")
 
@@ -294,9 +294,9 @@ def _tab_projection() -> None:
     benef_potentiel = ca_potentiel - cout_stock
 
     pc1, pc2, pc3 = st.columns(3)
-    pc1.metric("CA potentiel", f"{ca_potentiel:,.0f} EUR")
-    pc2.metric("Cout stock", f"{cout_stock:,.0f} EUR")
-    pc3.metric("Benefice potentiel", f"{benef_potentiel:,.0f} EUR")
+    pc1.metric("Revenus potentiels", f"{ca_potentiel:,.0f} EUR")
+    pc2.metric("Prix de revient stock", f"{cout_stock:,.0f} EUR")
+    pc3.metric("Gains potentiels", f"{benef_potentiel:,.0f} EUR")
 
     # --- Tableau de bord aujourd'hui ---
     st.divider()
@@ -307,7 +307,7 @@ def _tab_projection() -> None:
 
     jc1, jc2, jc3 = st.columns(3)
     jc1.metric("Ventes du jour", len(ventes_jour))
-    jc2.metric("CA du jour", f"{ca_jour:,.0f} EUR")
+    jc2.metric("Revenus du jour", f"{ca_jour:,.0f} EUR")
     if ventes_jour:
         best = max(ventes_jour, key=lambda v: v["prix_vente"])
         jc3.metric("Meilleure vente", f"{best['prix_vente']:,.0f} EUR")
@@ -359,8 +359,8 @@ def _tab_par_categorie() -> None:
     df = pd.DataFrame(rows)
     st.dataframe(df, use_container_width=True, hide_index=True, column_config={
         "CA total": st.column_config.NumberColumn(format="%.0f EUR"),
-        "Benefice": st.column_config.NumberColumn(format="%.0f EUR"),
-        "Marge %": st.column_config.NumberColumn(format="%.1f %%"),
+        "Benefice": st.column_config.NumberColumn("Gains", format="%.0f EUR"),
+        "Marge %": st.column_config.NumberColumn("Rentabilite %", format="%.1f %%"),
     })
 
     if rows:
@@ -381,8 +381,8 @@ def _tab_par_categorie() -> None:
 # Entree principale
 # =========================================================================
 def render() -> None:
-    st.title("P&L / Finances")
-    tab1, tab2, tab3, tab4 = st.tabs(["Vue globale", "Par lot", "Projection", "Par categorie"])
+    st.title("Mes revenus")
+    tab1, tab2, tab3, tab4 = st.tabs(["Apercu", "Par commande", "Previsions", "Par categorie"])
     with tab1:
         _tab_vue_globale()
     with tab2:

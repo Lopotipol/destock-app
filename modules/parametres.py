@@ -744,7 +744,7 @@ def _section_templates() -> None:
 # Entree principale du module
 # ---------------------------------------------------------------------------
 def render() -> None:
-    st.title("Parametres")
+    st.title("Reglages")
 
     tab_profil, tab_business, tab_api, tab_compte, tab_scoring, tab_tpl = st.tabs(
         ["Profil juridique", "Business", "Connexions & API", "Compte", "Scoring & Filtres", "Templates annonces"]

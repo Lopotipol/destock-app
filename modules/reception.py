@@ -353,15 +353,15 @@ def _tab_reception() -> None:
         # 4 boutons d'action
         ba1, ba2, ba3, ba4 = st.columns(4)
         with ba1:
-            if st.button("Conforme", use_container_width=True, key=f"rec_ok_{art['id']}"):
+            if st.button("Article OK", use_container_width=True, key=f"rec_ok_{art['id']}"):
                 _update_article_reception(art["id"], "conforme")
                 st.session_state["rec_idx"] = min(len(articles_filtre) - 1, idx + 1)
                 st.rerun()
         with ba2:
-            if st.button("Etat different", use_container_width=True, key=f"rec_diff_{art['id']}"):
+            if st.button("Etat a corriger", use_container_width=True, key=f"rec_diff_{art['id']}"):
                 st.session_state[f"rec_show_form_{art['id']}"] = True
         with ba3:
-            if st.button("Manquant", use_container_width=True, key=f"rec_manq_{art['id']}"):
+            if st.button("Article manquant", use_container_width=True, key=f"rec_manq_{art['id']}"):
                 _update_article_reception(art["id"], "manquant")
                 st.session_state["rec_idx"] = min(len(articles_filtre) - 1, idx + 1)
                 st.rerun()
@@ -424,7 +424,7 @@ def _tab_reception() -> None:
     # Finalisation
     if n_rest == 0:
         st.success("Tous les articles ont ete controles.")
-        if st.button("Finaliser la reception", use_container_width=True, type="primary", key="rec_finaliser"):
+        if st.button("Valider la reception", use_container_width=True, type="primary", key="rec_finaliser"):
             msg = _finaliser_reception(lot_id)
             st.success(msg)
             st.rerun()
@@ -502,8 +502,8 @@ def _tab_rapport() -> None:
 # Entree principale
 # =========================================================================
 def render() -> None:
-    st.title("Reception")
-    tab_rec, tab_rap = st.tabs(["Receptionner un lot", "Rapport de reception"])
+    st.title("Reception palette")
+    tab_rec, tab_rap = st.tabs(["Controler la livraison", "Rapport de livraison"])
     with tab_rec:
         _tab_reception()
     with tab_rap:

@@ -339,7 +339,7 @@ def _tab_generer() -> None:
     st.markdown("**Generer l'annonce**")
     col_lbc, col_vinted, col_ebay = st.columns(3)
     for canal in CANAUX:
-        if st.button(f"Generer {canal}", use_container_width=True, key=f"ann_gen_{canal.lower()}"):
+        if st.button(f"Publier sur {canal}", use_container_width=True, key=f"ann_gen_{canal.lower()}"):
             r = render_template_full(canal, art)
             if r:
                 st.session_state["ann_result"] = r
@@ -390,7 +390,7 @@ def _tab_generer() -> None:
         st.divider()
         st.markdown("**Publier l'annonce**")
         lien = st.text_input("Lien de l'annonce publiee", placeholder="https://www.leboncoin.fr/...", key="ann_lien_publi")
-        if st.button("Marquer annonce publiee", use_container_width=True, type="primary", key="ann_publier"):
+        if st.button("Annonce publiee", use_container_width=True, type="primary", key="ann_publier"):
             art_id = st.session_state.get("ann_article_id")
             if not art_id:
                 st.error("Aucun article selectionne.")
@@ -506,8 +506,8 @@ def _tab_mes_annonces() -> None:
 # Entree principale
 # =========================================================================
 def render() -> None:
-    st.title("Annonces")
-    tab_gen, tab_list = st.tabs(["Generer une annonce", "Mes annonces"])
+    st.title("Mes annonces")
+    tab_gen, tab_list = st.tabs(["Creer une annonce", "Annonces publiees"])
     with tab_gen:
         _tab_generer()
     with tab_list:
