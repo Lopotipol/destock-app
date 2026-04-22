@@ -333,16 +333,19 @@ def _tab_lots_disponibles() -> None:
 def _tab_analyser_lot() -> None:
     st.subheader("Analyser un lot")
 
-    # Recuperation URL et infos lot via API
+    # =====================================================================
+    # PARTIE 0 — URL B-STOCK (optionnel)
+    # =====================================================================
     url_default = st.session_state.get("mk_url_lot", "")
     url = st.text_input(
-        "URL du lot B-Stock",
+        "URL du lot B-Stock (optionnel)",
         value=url_default,
         placeholder="https://bstock.com/amazoneu/auction/auction/view/id/48982/",
+        help="Laissez vide si le lot est deja cloture ou si vous importez un CSV directement.",
     )
     col_fetch, col_open = st.columns(2)
     with col_fetch:
-        fetch_clicked = st.button("Recuperer infos", use_container_width=True, type="primary")
+        fetch_clicked = st.button("Recuperer infos", use_container_width=True)
     with col_open:
         if url:
             st.link_button("Ouvrir sur B-Stock", url, use_container_width=True)
@@ -358,42 +361,70 @@ def _tab_analyser_lot() -> None:
                 st.session_state["mk_detail"] = {
                     "lot": lot_data, "articles": [], "csv_path": "",
                 }
+                st.success("Infos lot recuperees depuis l'API.")
             except Exception as exc:
-                st.error(f"Erreur API : {exc}")
+                st.warning(
+                    f"Lot introuvable dans l'API ({exc}). "
+                    "Saisissez les infos manuellement ci-dessous."
+                )
 
-    detail = st.session_state.get("mk_detail")
-    if not detail or not detail.get("lot"):
-        st.info("Colle l'URL d'un lot B-Stock puis clique 'Recuperer infos'.")
-        return
-
-    lot = detail["lot"]
+    detail = st.session_state.get("mk_detail") or {"lot": {}, "articles": [], "csv_path": ""}
+    lot = detail.get("lot") or {}
 
     # =====================================================================
-    # PARTIE 1 — DONNEES B-STOCK + BUDGET
+    # PARTIE 1 — INFOS LOT (API ou saisie manuelle)
     # =====================================================================
     st.divider()
-    st.markdown("### 1. Donnees B-Stock")
-    st.caption(
-        "B-Stock gonfle les prix retail. "
-        "Ces donnees servent uniquement a estimer votre budget max."
-    )
+    st.markdown("### 1. Donnees du lot")
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Enchere actuelle", f"{lot.get('enchere', 0):,.0f} EUR")
-    c2.metric("Frais B-Stock", f"{lot.get('frais_bstock', 0):,.0f} EUR")
-    c3.metric("Retail B-Stock", f"{lot.get('retail_total', 0):,.0f} EUR")
-    c4.metric("Nb articles", f"{lot.get('nb_articles', 0)}")
+    has_api_data = bool(lot.get("titre") or lot.get("nb_articles"))
+    if has_api_data:
+        st.caption(
+            "Donnees recuperees via l'API B-Stock. "
+            "Les prix retail sont indicatifs (B-Stock gonfle souvent)."
+        )
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Enchere actuelle", f"{lot.get('enchere', 0):,.0f} EUR")
+        c2.metric("Frais B-Stock", f"{lot.get('frais_bstock', 0):,.0f} EUR")
+        c3.metric("Retail B-Stock", f"{lot.get('retail_total', 0):,.0f} EUR")
+        c4.metric("Nb articles", f"{lot.get('nb_articles', 0)}")
 
-    ferme_sec = lot.get("ferme_dans_secondes", -1)
-    ferme_txt = _format_secondes(ferme_sec) if ferme_sec and ferme_sec > 0 else lot.get("date_cloture", "-")
-    st.caption(f"Ferme dans : **{ferme_txt}** | {lot.get('titre', '')[:80]}")
+        ferme_sec = lot.get("ferme_dans_secondes", -1)
+        ferme_txt = _format_secondes(ferme_sec) if ferme_sec and ferme_sec > 0 else lot.get("date_cloture", "-")
+        st.caption(f"Ferme dans : **{ferme_txt}** | {lot.get('titre', '')[:80]}")
+    else:
+        st.caption("Pas de donnees API. Saisissez les infos manuellement si besoin.")
+        mc1, mc2 = st.columns(2)
+        with mc1:
+            nb_articles_manual = st.number_input(
+                "Nombre d'articles",
+                min_value=0, step=1,
+                value=int(st.session_state.get("mk_nb_articles_manual", 0)),
+                key="mk_nb_articles_input",
+            )
+        with mc2:
+            retail_manual = st.number_input(
+                "Retail total estime (EUR, optionnel)",
+                min_value=0.0, step=100.0,
+                value=float(st.session_state.get("mk_retail_manual", 0)),
+                key="mk_retail_input",
+            )
+        st.session_state["mk_nb_articles_manual"] = nb_articles_manual
+        st.session_state["mk_retail_manual"] = retail_manual
+        # Patch le lot avec ces valeurs pour le reste du flow
+        lot = {
+            **lot,
+            "nb_articles": int(nb_articles_manual),
+            "retail_total": float(retail_manual),
+            "titre": lot.get("titre", ""),
+        }
 
     # --- Saisie manuelle du budget ---
-    st.markdown("**Calculer votre budget max**")
+    st.markdown("**Calculer votre budget**")
     budget_cols = st.columns(4)
     with budget_cols[0]:
         enchere_user = st.number_input(
-            "Votre enchere max (EUR)",
+            "Enchere payee / max (EUR)",
             min_value=0.0, step=50.0,
             value=float(st.session_state.get("mk_enchere_user", lot.get("enchere", 0))),
             key="mk_enchere_input",
@@ -408,7 +439,7 @@ def _tab_analyser_lot() -> None:
             min_value=0.0, step=50.0,
             value=float(st.session_state.get("mk_frais_supp_user", 0)),
             key="mk_frais_supp_input",
-            help="Frais affiches au moment d'encherir (ex: 794 EUR pour ce lot)",
+            help="Frais affiches au moment d'encherir (ex: 794 EUR)",
         )
     with budget_cols[3]:
         livraison_user = st.number_input(
@@ -418,13 +449,12 @@ def _tab_analyser_lot() -> None:
             key="mk_livraison_input",
         )
 
-    # Sauvegarde dans session pour Partie 2
     st.session_state["mk_enchere_user"] = enchere_user
     st.session_state["mk_frais_supp_user"] = frais_supp_user
     st.session_state["mk_livraison_user"] = livraison_user
 
     cout_total_user = round(enchere_user + frais_bstock_calc + frais_supp_user + livraison_user, 2)
-    nb_articles = int(lot.get("nb_articles") or 1)
+    nb_articles = int(lot.get("nb_articles") or 0) or 1
     cout_par_article = round(cout_total_user / nb_articles, 2) if nb_articles > 0 else 0
 
     # Metriques recapitulatives
@@ -435,52 +465,42 @@ def _tab_analyser_lot() -> None:
     rc4.metric("Livraison", f"{livraison_user:,.0f} EUR")
     rc5.metric("COUT TOTAL", f"{cout_total_user:,.0f} EUR")
 
-    st.metric("COUT PAR ARTICLE", f"{cout_par_article:,.2f} EUR")
+    if cout_par_article > 0:
+        if cout_par_article < 5:
+            st.success(f"{cout_par_article:.2f} EUR/article — Excellent, fort potentiel de revente.")
+        elif cout_par_article <= 20:
+            st.warning(f"{cout_par_article:.2f} EUR/article — Correct, analysez le manifeste pour valider.")
+        else:
+            st.error(f"{cout_par_article:.2f} EUR/article — Risque, verifiez bien les articles.")
 
-    if cout_par_article < 5:
-        st.success(f"Excellent — {cout_par_article:.2f} EUR/article, fort potentiel de revente.")
-    elif cout_par_article <= 20:
-        st.warning(f"Correct — {cout_par_article:.2f} EUR/article, analysez le manifeste pour valider.")
-    else:
-        st.error(f"Risque — {cout_par_article:.2f} EUR/article, verifiez bien les articles avant d'encherir.")
-
-    # Score du lot recalcule en temps reel avec les vrais couts saisis
-    params = get_scoring_params()
-    lot_pour_score = {**lot, "enchere": enchere_user, "cout_total": cout_total_user}
-    sc = calculate_score(lot_pour_score, params)
-    col_sc, col_det = st.columns([1, 4])
-    with col_sc:
-        color = "green" if sc["score_total"] >= 70 else ("orange" if sc["score_total"] >= 40 else "red")
-        st.markdown(f"**Score : :{color}[{sc['score_total']}/100]**")
-        if sc["disqualifie"]:
-            st.error(sc["raison_disqualification"])
-    with col_det:
-        st.caption(
-            f"Enchere : **{enchere_user:,.0f} EUR** | "
-            f"Frais supp : **{frais_supp_user:,.0f} EUR** | "
-            f"Livraison : **{livraison_user:,.0f} EUR** | "
-            f"TOTAL : **{cout_total_user:,.0f} EUR** | "
-            f"**{cout_par_article:.2f} EUR/article**"
-        )
-        d = sc["details"]
-        st.caption(
-            f"Ratio {sc['score_ratio']}pts ({d['ratio']}) | "
-            f"Volume {sc['score_volume']}pts ({d['retail']} EUR retail) | "
-            f"Cat {sc['score_categorie']}pts | "
-            f"Cout {sc['score_cout_moyen']}pts ({d['cout_moyen']} EUR/art) | "
-            f"Loc {sc['score_localisation']}pts ({d['pays']}) | "
-            f"Bonus {sc['bonus']:+d}pts"
-        )
+    # Score uniquement si on a assez de donnees
+    if has_api_data and lot.get("retail_total"):
+        params = get_scoring_params()
+        lot_pour_score = {**lot, "enchere": enchere_user, "cout_total": cout_total_user}
+        sc = calculate_score(lot_pour_score, params)
+        col_sc, col_det = st.columns([1, 4])
+        with col_sc:
+            color = "green" if sc["score_total"] >= 70 else ("orange" if sc["score_total"] >= 40 else "red")
+            st.markdown(f"**Score : :{color}[{sc['score_total']}/100]**")
+            if sc["disqualifie"]:
+                st.error(sc["raison_disqualification"])
+        with col_det:
+            d = sc["details"]
+            st.caption(
+                f"Ratio {sc['score_ratio']}pts ({d['ratio']}) | "
+                f"Volume {sc['score_volume']}pts | Cat {sc['score_categorie']}pts | "
+                f"Cout {sc['score_cout_moyen']}pts | Loc {sc['score_localisation']}pts ({d['pays']}) | "
+                f"Bonus {sc['bonus']:+d}pts"
+            )
 
     # =====================================================================
-    # PARTIE 2 — IMPORT MANIFESTE
+    # PARTIE 2 — IMPORT MANIFESTE (toujours affiche)
     # =====================================================================
     st.divider()
     st.markdown("### 2. Importez le manifeste CSV")
     st.markdown(
-        "**1.** Cliquez 'Ouvrir sur B-Stock' ci-dessus et connectez-vous  \n"
-        "**2.** Telechargez le manifeste CSV depuis la page du lot  \n"
-        "**3.** Deposez le fichier ici :"
+        "Telechargez le manifeste depuis B-Stock (meme apres cloture) "
+        "et deposez-le ici :"
     )
     uploaded_csv = st.file_uploader(
         "Fichier CSV du manifeste",
@@ -490,23 +510,33 @@ def _tab_analyser_lot() -> None:
     )
     if uploaded_csv is not None and not detail.get("articles"):
         try:
-            lot_id = lot.get("lot_id") or bstock._extract_lot_id(url)
+            # Lot_id : depuis l'URL si dispo, sinon depuis le nom du fichier
+            lot_id = lot.get("lot_id") or bstock._extract_lot_id(url) or uploaded_csv.name.split(".")[0]
             csv_path = bstock.DOWNLOADS_DIR / f"manifest_{lot_id}_upload.csv"
             csv_path.write_bytes(uploaded_csv.getvalue())
-            # cout_total = enchere + frais_bstock + frais_supp + livraison (saisis Partie 1)
             lot_for_parse = {**lot, "cout_total": cout_total_user, "lot_id": lot_id}
             articles = bstock.parse_manifest(csv_path, lot_for_parse)
+            # Si pas de nb_articles, on prend celui du CSV
+            if not lot.get("nb_articles"):
+                lot["nb_articles"] = len(articles)
+            if not lot.get("retail_total"):
+                lot["retail_total"] = sum(a.get("retail_price", 0) for a in articles)
+            detail["lot"] = lot
             detail["articles"] = articles
             detail["csv_path"] = str(csv_path)
             st.session_state["mk_detail"] = detail
-            st.success(f"{len(articles)} articles parses avec un cout total de {cout_total_user:,.0f} EUR.")
+            st.success(f"{len(articles)} articles parses avec cout total {cout_total_user:,.0f} EUR.")
             st.rerun()
         except Exception as exc:
             st.error(f"Erreur parsing CSV : {type(exc).__name__}: {exc}")
 
     articles = detail.get("articles") or []
     if not articles:
-        st.info("Deposez le manifeste CSV pour debloquer l'analyse articles.")
+        st.info("Deposez le manifeste CSV pour analyser les articles (ou utilisez 'Ajouter au stock' sans CSV).")
+        # On affiche quand meme les actions (surveiller / ajouter sans articles)
+        st.divider()
+        st.markdown("**Decision**")
+        _render_actions(lot, articles)
         return
 
     # =====================================================================
