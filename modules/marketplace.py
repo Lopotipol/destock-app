@@ -363,9 +363,11 @@ def _tab_analyser_lot() -> None:
                 }
                 st.success("Infos lot recuperees depuis l'API.")
             except Exception as exc:
+                # API KO -> on ne conserve PAS d'ancienne donnee qui semerait la confusion
+                st.session_state["mk_detail"] = {"lot": {}, "articles": [], "csv_path": ""}
                 st.warning(
                     f"Lot introuvable dans l'API ({exc}). "
-                    "Saisissez les infos manuellement ci-dessous."
+                    "Saisissez les infos manuellement ci-dessous et uploadez votre CSV."
                 )
 
     detail = st.session_state.get("mk_detail") or {"lot": {}, "articles": [], "csv_path": ""}
