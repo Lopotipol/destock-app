@@ -334,7 +334,7 @@ def _tab_analyser_lot() -> None:
     st.subheader("Analyser un lot")
 
     # =====================================================================
-    # PARTIE 0 — URL B-STOCK (optionnel)
+    # 1. URL (OPTIONNEL) — non-bloquant
     # =====================================================================
     url_default = st.session_state.get("mk_url_lot", "")
     url = st.text_input(
@@ -361,113 +361,96 @@ def _tab_analyser_lot() -> None:
                 st.session_state["mk_detail"] = {
                     "lot": lot_data, "articles": [], "csv_path": "",
                 }
+                # Pre-remplit les champs de saisie depuis l'API
+                st.session_state["mk_enchere_user"] = float(lot_data.get("enchere") or 0)
+                st.session_state["mk_livraison_user"] = float(lot_data.get("frais_livraison") or 0)
+                st.session_state["mk_nb_articles_manual"] = int(lot_data.get("nb_articles") or 0)
+                st.session_state["mk_retail_manual"] = float(lot_data.get("retail_total") or 0)
                 st.success("Infos lot recuperees depuis l'API.")
             except Exception as exc:
-                # API KO -> on ne conserve PAS d'ancienne donnee qui semerait la confusion
                 st.session_state["mk_detail"] = {"lot": {}, "articles": [], "csv_path": ""}
-                st.warning(
-                    f"Lot introuvable dans l'API ({exc}). "
-                    "Saisissez les infos manuellement ci-dessous et uploadez votre CSV."
-                )
+                st.warning(f"Lot introuvable dans l'API : {exc}")
 
     detail = st.session_state.get("mk_detail") or {"lot": {}, "articles": [], "csv_path": ""}
     lot = detail.get("lot") or {}
 
+    # Bandeau infos API si disponibles (purement informatif, non-bloquant)
+    if lot.get("titre"):
+        st.info(
+            f"**{lot.get('titre', '')[:80]}** — "
+            f"Enchere API : {lot.get('enchere', 0):,.0f} EUR | "
+            f"Retail : {lot.get('retail_total', 0):,.0f} EUR | "
+            f"Articles : {lot.get('nb_articles', 0)}"
+        )
+
     # =====================================================================
-    # PARTIE 1 — INFOS LOT (API ou saisie manuelle)
+    # 2. VOS COUTS — TOUJOURS VISIBLE
     # =====================================================================
     st.divider()
-    st.markdown("### 1. Donnees du lot")
+    st.markdown("### Vos couts")
 
-    has_api_data = bool(lot.get("titre") or lot.get("nb_articles"))
-    if has_api_data:
-        st.caption(
-            "Donnees recuperees via l'API B-Stock. "
-            "Les prix retail sont indicatifs (B-Stock gonfle souvent)."
+    c1, c2 = st.columns(2)
+    with c1:
+        nb_articles_manual = st.number_input(
+            "Nombre d'articles",
+            min_value=0, step=1,
+            value=int(st.session_state.get("mk_nb_articles_manual", 0)),
+            key="mk_nb_articles_input",
         )
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Enchere actuelle", f"{lot.get('enchere', 0):,.0f} EUR")
-        c2.metric("Frais B-Stock", f"{lot.get('frais_bstock', 0):,.0f} EUR")
-        c3.metric("Retail B-Stock", f"{lot.get('retail_total', 0):,.0f} EUR")
-        c4.metric("Nb articles", f"{lot.get('nb_articles', 0)}")
+    with c2:
+        retail_manual = st.number_input(
+            "Retail total estime (EUR)",
+            min_value=0.0, step=100.0,
+            value=float(st.session_state.get("mk_retail_manual", 0)),
+            key="mk_retail_input",
+        )
 
-        ferme_sec = lot.get("ferme_dans_secondes", -1)
-        ferme_txt = _format_secondes(ferme_sec) if ferme_sec and ferme_sec > 0 else lot.get("date_cloture", "-")
-        st.caption(f"Ferme dans : **{ferme_txt}** | {lot.get('titre', '')[:80]}")
-    else:
-        st.caption("Pas de donnees API. Saisissez les infos manuellement si besoin.")
-        mc1, mc2 = st.columns(2)
-        with mc1:
-            nb_articles_manual = st.number_input(
-                "Nombre d'articles",
-                min_value=0, step=1,
-                value=int(st.session_state.get("mk_nb_articles_manual", 0)),
-                key="mk_nb_articles_input",
-            )
-        with mc2:
-            retail_manual = st.number_input(
-                "Retail total estime (EUR, optionnel)",
-                min_value=0.0, step=100.0,
-                value=float(st.session_state.get("mk_retail_manual", 0)),
-                key="mk_retail_input",
-            )
-        st.session_state["mk_nb_articles_manual"] = nb_articles_manual
-        st.session_state["mk_retail_manual"] = retail_manual
-        # Patch le lot avec ces valeurs pour le reste du flow
-        lot = {
-            **lot,
-            "nb_articles": int(nb_articles_manual),
-            "retail_total": float(retail_manual),
-            "titre": lot.get("titre", ""),
-        }
-
-    # --- Saisie manuelle du budget ---
-    st.markdown("**Calculer votre budget**")
-    budget_cols = st.columns(4)
+    budget_cols = st.columns(3)
     with budget_cols[0]:
         enchere_user = st.number_input(
-            "Enchere payee / max (EUR)",
+            "Enchere payee (EUR)",
             min_value=0.0, step=50.0,
-            value=float(st.session_state.get("mk_enchere_user", lot.get("enchere", 0))),
+            value=float(st.session_state.get("mk_enchere_user", 0)),
             key="mk_enchere_input",
         )
     with budget_cols[1]:
-        frais_bstock_pct = float(get_param("business_frais_bstock_pct", "5") or 5)
-        frais_bstock_calc = round(enchere_user * frais_bstock_pct / 100, 2)
-        st.metric("Frais B-Stock calcules", f"{frais_bstock_calc:,.0f} EUR")
-    with budget_cols[2]:
         frais_supp_user = st.number_input(
-            "Frais supplementaires B-Stock (EUR)",
+            "Frais supplementaires (EUR)",
             min_value=0.0, step=50.0,
             value=float(st.session_state.get("mk_frais_supp_user", 0)),
             key="mk_frais_supp_input",
             help="Frais affiches au moment d'encherir (ex: 794 EUR)",
         )
-    with budget_cols[3]:
+    with budget_cols[2]:
         livraison_user = st.number_input(
             "Frais livraison (EUR)",
             min_value=0.0, step=50.0,
-            value=float(st.session_state.get("mk_livraison_user", lot.get("frais_livraison", 0))),
+            value=float(st.session_state.get("mk_livraison_user", 0)),
             key="mk_livraison_input",
         )
 
+    # Persiste en session
+    st.session_state["mk_nb_articles_manual"] = nb_articles_manual
+    st.session_state["mk_retail_manual"] = retail_manual
     st.session_state["mk_enchere_user"] = enchere_user
     st.session_state["mk_frais_supp_user"] = frais_supp_user
     st.session_state["mk_livraison_user"] = livraison_user
 
+    # Calculs live
+    frais_bstock_pct = float(get_param("business_frais_bstock_pct", "5") or 5)
+    frais_bstock_calc = round(enchere_user * frais_bstock_pct / 100, 2)
     cout_total_user = round(enchere_user + frais_bstock_calc + frais_supp_user + livraison_user, 2)
-    nb_articles = int(lot.get("nb_articles") or 0) or 1
-    cout_par_article = round(cout_total_user / nb_articles, 2) if nb_articles > 0 else 0
+    nb_for_calc = int(nb_articles_manual) or 1
+    cout_par_article = round(cout_total_user / nb_for_calc, 2) if nb_for_calc > 0 else 0
 
-    # Metriques recapitulatives
     rc1, rc2, rc3, rc4, rc5 = st.columns(5)
     rc1.metric("Enchere", f"{enchere_user:,.0f} EUR")
-    rc2.metric("Frais B-Stock", f"{frais_bstock_calc:,.0f} EUR")
+    rc2.metric(f"Frais B-Stock ({frais_bstock_pct:.0f}%)", f"{frais_bstock_calc:,.0f} EUR")
     rc3.metric("Frais supp.", f"{frais_supp_user:,.0f} EUR")
     rc4.metric("Livraison", f"{livraison_user:,.0f} EUR")
     rc5.metric("COUT TOTAL", f"{cout_total_user:,.0f} EUR")
 
-    if cout_par_article > 0:
+    if cout_par_article > 0 and nb_articles_manual > 0:
         if cout_par_article < 5:
             st.success(f"{cout_par_article:.2f} EUR/article — Excellent, fort potentiel de revente.")
         elif cout_par_article <= 20:
@@ -475,34 +458,24 @@ def _tab_analyser_lot() -> None:
         else:
             st.error(f"{cout_par_article:.2f} EUR/article — Risque, verifiez bien les articles.")
 
-    # Score uniquement si on a assez de donnees
-    if has_api_data and lot.get("retail_total"):
-        params = get_scoring_params()
-        lot_pour_score = {**lot, "enchere": enchere_user, "cout_total": cout_total_user}
-        sc = calculate_score(lot_pour_score, params)
-        col_sc, col_det = st.columns([1, 4])
-        with col_sc:
-            color = "green" if sc["score_total"] >= 70 else ("orange" if sc["score_total"] >= 40 else "red")
-            st.markdown(f"**Score : :{color}[{sc['score_total']}/100]**")
-            if sc["disqualifie"]:
-                st.error(sc["raison_disqualification"])
-        with col_det:
-            d = sc["details"]
-            st.caption(
-                f"Ratio {sc['score_ratio']}pts ({d['ratio']}) | "
-                f"Volume {sc['score_volume']}pts | Cat {sc['score_categorie']}pts | "
-                f"Cout {sc['score_cout_moyen']}pts | Loc {sc['score_localisation']}pts ({d['pays']}) | "
-                f"Bonus {sc['bonus']:+d}pts"
-            )
+    # Construit un lot dict unifie (API + saisies manuelles)
+    lot = {
+        **lot,
+        "nb_articles": int(nb_articles_manual) or lot.get("nb_articles", 0),
+        "retail_total": float(retail_manual) or lot.get("retail_total", 0),
+        "enchere": enchere_user,
+        "frais_bstock": frais_bstock_calc,
+        "frais_livraison": livraison_user,
+        "cout_total": cout_total_user,
+    }
 
     # =====================================================================
-    # PARTIE 2 — IMPORT MANIFESTE (toujours affiche)
+    # 3. MANIFESTE CSV — TOUJOURS VISIBLE
     # =====================================================================
     st.divider()
-    st.markdown("### 2. Importez le manifeste CSV")
-    st.markdown(
-        "Telechargez le manifeste depuis B-Stock (meme apres cloture) "
-        "et deposez-le ici :"
+    st.markdown("### Manifeste CSV")
+    st.caption(
+        "Telechargez le manifeste depuis B-Stock (meme apres cloture) et deposez-le ici."
     )
     uploaded_csv = st.file_uploader(
         "Fichier CSV du manifeste",
@@ -512,13 +485,11 @@ def _tab_analyser_lot() -> None:
     )
     if uploaded_csv is not None and not detail.get("articles"):
         try:
-            # Lot_id : depuis l'URL si dispo, sinon depuis le nom du fichier
             lot_id = lot.get("lot_id") or bstock._extract_lot_id(url) or uploaded_csv.name.split(".")[0]
             csv_path = bstock.DOWNLOADS_DIR / f"manifest_{lot_id}_upload.csv"
             csv_path.write_bytes(uploaded_csv.getvalue())
             lot_for_parse = {**lot, "cout_total": cout_total_user, "lot_id": lot_id}
             articles = bstock.parse_manifest(csv_path, lot_for_parse)
-            # Si pas de nb_articles, on prend celui du CSV
             if not lot.get("nb_articles"):
                 lot["nb_articles"] = len(articles)
             if not lot.get("retail_total"):
@@ -533,12 +504,14 @@ def _tab_analyser_lot() -> None:
             st.error(f"Erreur parsing CSV : {type(exc).__name__}: {exc}")
 
     articles = detail.get("articles") or []
+    # =====================================================================
+    # 5. BOUTONS DECISION — TOUJOURS VISIBLES (fonctionnent avec ou sans CSV)
+    # =====================================================================
     if not articles:
-        st.info("Deposez le manifeste CSV pour analyser les articles (ou utilisez 'Ajouter au stock' sans CSV).")
-        # On affiche quand meme les actions (surveiller / ajouter sans articles)
         st.divider()
         st.markdown("**Decision**")
         _render_actions(lot, articles)
+        st.info("Deposez le CSV pour analyser les articles un par un (optionnel).")
         return
 
     # =====================================================================
