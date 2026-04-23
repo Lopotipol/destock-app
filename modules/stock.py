@@ -98,11 +98,16 @@ def _load_articles(lot_id: str) -> tuple[list[dict], dict]:
         }
         arts_data = []
         for a in arts:
+            # condition   = etat initial du manifeste (jamais modifie apres import)
+            # condition_reelle = etat constate par l'utilisateur (modifiable)
+            cond_init = a.condition or "Customer Damage"
+            cond_reelle = a.condition_reelle or cond_init
             arts_data.append({
                 "id": a.id,
                 "lpn": a.lpn or "",
                 "description": _clean_desc(a.description or ""),
-                "condition": a.condition or "Customer Damage",
+                "condition_initiale": cond_init,        # Manifeste (readonly)
+                "condition": cond_reelle,                # Reelle (editable)
                 "retail_price": a.retail_price or 0,
                 "cout_reel": a.cout_reel or 0,
                 "prix_cible": a.prix_cible or 0,
@@ -233,10 +238,22 @@ def _render_article_detail(art: dict, cout_unitaire: float) -> None:
         f"Cout : {art['cout_reel']:.2f} EUR"
     )
 
-    # --- Ligne 1 : Etat + Teste neuf ---
-    c1, c2, c3 = st.columns([2, 1, 1])
+    # --- Etats : initial (manifeste) vs constate (editable) ---
+    cond_init = art.get("condition_initiale", art["condition"])
+    change = cond_init != art["condition"]
+    badge_init = (
+        f"<span style='background:#e2e8f0;color:#475569;padding:3px 10px;"
+        f"border-radius:5px;font-weight:600;font-size:11px;'>{cond_init}</span>"
+    )
+    st.markdown(
+        f"**Etat initial (manifeste)** : {badge_init}"
+        + ("  —  *modifie apres test*" if change else ""),
+        unsafe_allow_html=True,
+    )
+
+    c1, c2, _ = st.columns([2, 1, 1])
     new_cond = c1.selectbox(
-        "Etat constate",
+        "Etat constate (apres test)",
         ETATS_LIST,
         index=ETATS_LIST.index(art["condition"]) if art["condition"] in ETATS_LIST else 1,
         key=f"stk_cond_{art_id}",
@@ -246,11 +263,16 @@ def _render_article_detail(art: dict, cout_unitaire: float) -> None:
         value=art["teste_neuf"],
         key=f"stk_neuf_{art_id}",
     )
-    # Recalcul prix cible si etat ou teste change
+    # Recalcul prix cible si etat reel ou teste change
     if new_cond != art["condition"] or new_teste != art["teste_neuf"]:
         new_cible = _calc_prix_cible(art["retail_price"], new_cond, new_teste)
-        _update_article(art_id, condition=new_cond, teste_neuf=int(new_teste),
-                        prix_cible=new_cible, prix_affiche=new_cible)
+        _update_article(
+            art_id,
+            condition_reelle=new_cond,
+            teste_neuf=int(new_teste),
+            prix_cible=new_cible,
+            prix_affiche=new_cible,
+        )
         st.rerun()
 
     # --- Ligne 2 : Prix cible vs prix affiche ---
@@ -379,17 +401,19 @@ def _render_article_detail(art: dict, cout_unitaire: float) -> None:
 # ---------------------------------------------------------------------------
 def _render_article_compact(art: dict, cout_unitaire: float) -> None:
     """Ligne compacte dans un expander (click-to-expand)."""
-    art_id = art["id"]
-    # Titre de l'expander = description + prix + badges
     prix = art["prix_affiche"]
-    cible = art["prix_cible"]
-    color = _prix_color(prix, cible)
     desc_short = art["description"][:55]
     statut_label = STATUT_LABEL.get(art["statut"], ("", art["statut"]))[1]
     plats_str = " ".join(f"[{p}]" for p in art["plateformes"]) if art["plateformes"] else ""
 
-    # Titre compact : desc | prix | statut
-    titre = f"{desc_short}  —  {prix:.0f} EUR  —  {statut_label}  {plats_str}"
+    # Affiche l'etat : initial (manifeste) + constate si different
+    cond_init = art.get("condition_initiale", art["condition"])
+    if art["condition"] != cond_init:
+        etat_txt = f"{cond_init} -> {art['condition']}"
+    else:
+        etat_txt = cond_init
+
+    titre = f"{desc_short}  —  {etat_txt}  —  {prix:.0f} EUR  —  {statut_label}  {plats_str}"
 
     with st.expander(titre, expanded=False):
         _render_article_detail(art, cout_unitaire)
