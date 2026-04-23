@@ -134,6 +134,11 @@ class Article(Base):
     commentaire_reception = Column(Text, default="")
     date_reception_reelle = Column(DateTime, nullable=True)
 
+    # Nouveau (v2) : edition inline dans le stock
+    prix_affiche = Column(Float, default=0.0)           # Prix mis sur LBC/Vinted/eBay
+    teste_neuf = Column(Integer, default=0)             # 0 ou 1 (bonus +20% sur prix_cible)
+    frais_vente = Column(Float, default=0.0)            # frais emballage / expedition
+
     date_reception = Column(DateTime, nullable=True)
     notes = Column(Text, default="")
 
@@ -159,10 +164,16 @@ class Vente(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     article_id = Column(Integer, ForeignKey("articles.id"), nullable=False)
-    canal = Column(String(20), default="")               # LBC / Vinted / eBay / Autre
+    canal = Column(String(20), default="")               # LBC / Vinted / eBay / Whatnot / Autre
     prix_vente = Column(Float, default=0.0)
     date_vente = Column(DateTime, default=datetime.utcnow)
     lien_annonce = Column(Text, default="")
+
+    # Nouveau (v2) : details commission + benefice net
+    commission_pct = Column(Float, default=0.0)
+    commission_montant = Column(Float, default=0.0)
+    frais_supplementaires = Column(Float, default=0.0)
+    benefice_net = Column(Float, default=0.0)
 
 
 class Annonce(Base):
@@ -226,6 +237,35 @@ def get_session():
     return SessionLocal()
 
 
+def _migrate_v2_columns() -> None:
+    """Ajoute les colonnes v2 aux tables existantes (articles, ventes)."""
+    import sqlite3
+    db_path = DATABASE_URL.replace("sqlite:///", "")
+    try:
+        conn = sqlite3.connect(db_path)
+        # Colonnes a ajouter : (table, colonne, type_sql)
+        migrations = [
+            ("articles", "prix_affiche", "REAL DEFAULT 0"),
+            ("articles", "teste_neuf", "INTEGER DEFAULT 0"),
+            ("articles", "frais_vente", "REAL DEFAULT 0"),
+            ("ventes", "commission_pct", "REAL DEFAULT 0"),
+            ("ventes", "commission_montant", "REAL DEFAULT 0"),
+            ("ventes", "frais_supplementaires", "REAL DEFAULT 0"),
+            ("ventes", "benefice_net", "REAL DEFAULT 0"),
+        ]
+        for table, col, typedef in migrations:
+            try:
+                existing = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+                if col not in existing:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typedef}")
+            except Exception:
+                pass
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+
 def init_db():
     """
     Cree les tables manquantes et injecte :
@@ -235,6 +275,10 @@ def init_db():
     Import tardif de `auth` pour eviter un cycle d'import database <-> auth.
     """
     Base.metadata.create_all(engine)
+
+    # Migration ALTER TABLE pour colonnes ajoutees en v2 (SQLite uniquement)
+    if DATABASE_URL.startswith("sqlite"):
+        _migrate_v2_columns()
 
     from auth import hash_password
 

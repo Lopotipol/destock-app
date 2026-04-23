@@ -9,3 +9,4 @@ sniff_results.json
 debug_page.html
 *.output
 .streamlit/secrets.toml
+.claude/

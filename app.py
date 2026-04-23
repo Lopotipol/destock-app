@@ -41,17 +41,8 @@ def init_env_params() -> None:
             print(f"Set {param_key} from env")
 
 
-# Modules metier
-from modules import (
-    parametres,
-    marketplace,
-    encheres,
-    reception,
-    stock,
-    annonces,
-    pnl,
-    alertes,
-)
+# Modules metier (v2 simplifie : 3 ecrans + reglages)
+from modules import lots, stock, revenus, parametres
 
 
 # ---------------------------------------------------------------------------
@@ -66,9 +57,6 @@ st.set_page_config(
 
 init_db()
 init_env_params()
-
-from modules.alertes import run_monitoring
-run_monitoring()
 
 
 # ---------------------------------------------------------------------------
@@ -331,135 +319,11 @@ def info_card(title: str, content: str, color: str = "#2563eb") -> None:
 # Table de routage : nom affiche -> fonction du module a appeler
 # ---------------------------------------------------------------------------
 PAGES = {
-    "Accueil":              None,                # Dashboard gere inline
-    "Trouver un lot":       marketplace.render,
-    "Mes achats":           encheres.render,
-    "Reception palette":    reception.render,
-    "Mon stock":            stock.render,
-    "Mes annonces":         annonces.render,
-    "Mes revenus":          pnl.render,
-    "Notifications":        alertes.render,
-    "Reglages":             parametres.render,
+    "Mes lots":    lots.render,
+    "Mon stock":   stock.render,
+    "Mes revenus": revenus.render,
+    "Reglages":    parametres.render,
 }
-
-
-# ---------------------------------------------------------------------------
-# Tableau de bord (Accueil)
-# ---------------------------------------------------------------------------
-def _render_dashboard() -> None:
-    """Accueil : vue d'ensemble temps reel."""
-    from datetime import datetime
-    from database import Article, Annonce, Vente, Lot, get_session
-
-    section_header("Accueil", "Vue d'ensemble de votre activite")
-
-    session = get_session()
-    try:
-        now = datetime.utcnow()
-        debut_mois = datetime(now.year, now.month, 1)
-
-        all_articles = session.query(Article).all()
-        en_stock = [a for a in all_articles if a.statut == "en_stock"]
-        ventes_mois = session.query(Vente).filter(Vente.date_vente >= debut_mois).all()
-        ca_mois = sum(v.prix_vente or 0 for v in ventes_mois)
-        benef_mois = sum(
-            (v.prix_vente or 0)
-            - (session.query(Article).filter_by(id=v.article_id).first().cout_reel or 0)
-            for v in ventes_mois
-            if session.query(Article).filter_by(id=v.article_id).first()
-        )
-
-        # Ligne 1 : Metriques principales
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Articles en stock", len(en_stock))
-        m2.metric("Ventes ce mois", len(ventes_mois))
-        m3.metric("Revenus du mois", f"{ca_mois:,.0f} EUR")
-        m4.metric("Gains du mois", f"{benef_mois:,.0f} EUR")
-
-        st.divider()
-
-        # Ligne 2 : Actions urgentes
-        st.markdown("**Actions urgentes**")
-        stock_mort = sum(
-            1 for a in en_stock
-            if a.date_reception and (now - a.date_reception).days > 30
-        )
-        annonces_gen = session.query(Annonce).filter_by(statut="generee").count()
-        annonces_pub = sum(1 for a in all_articles if a.statut == "annonce_publiee")
-        nb_lots = session.query(Lot).count()
-
-        a1, a2, a3, a4 = st.columns(4)
-        a1.metric("Invendus longue duree", stock_mort)
-        a2.metric("Annonces a publier", annonces_gen)
-        a3.metric("Ventes a enregistrer", annonces_pub)
-        a4.metric("Commandes en base", nb_lots)
-
-        st.divider()
-
-        # Ligne 3 : Activite recente
-        st.markdown("**Activite recente**")
-        ventes_recentes = (
-            session.query(Vente)
-            .order_by(Vente.date_vente.desc())
-            .limit(5)
-            .all()
-        )
-        if ventes_recentes:
-            for v in ventes_recentes:
-                art = session.query(Article).filter_by(id=v.article_id).first()
-                desc = (art.description or "")[:45] if art else "?"
-                date_str = v.date_vente.strftime("%d/%m") if v.date_vente else ""
-                st.caption(
-                    f"- {desc} — **{v.prix_vente or 0:,.0f} EUR** "
-                    f"via {v.canal or '?'} ({date_str})"
-                )
-        else:
-            st.caption("Aucune vente enregistree.")
-
-        st.divider()
-
-        # Ligne 4 : Stock par etat
-        st.markdown("**Stock par etat**")
-        conditions: dict[str, int] = {}
-        for a in en_stock:
-            c = a.condition or "Autre"
-            conditions[c] = conditions.get(c, 0) + 1
-        total_stock = len(en_stock) or 1
-        cols = st.columns(len(conditions) or 1)
-        for i, (cond, count) in enumerate(sorted(conditions.items(), key=lambda x: -x[1])):
-            with cols[i % len(cols)]:
-                st.metric(cond, count)
-                st.progress(count / total_stock)
-
-    finally:
-        session.close()
-
-    st.divider()
-
-    # Ligne 5 : Raccourcis rapides
-    st.markdown("**Raccourcis**")
-
-    def go_marketplace():
-        st.session_state["sidebar_nav"] = "Trouver un lot"
-
-    def go_annonces():
-        st.session_state["sidebar_nav"] = "Mes annonces"
-
-    def go_stock():
-        st.session_state["sidebar_nav"] = "Mon stock"
-
-    def go_pnl():
-        st.session_state["sidebar_nav"] = "Mes revenus"
-
-    r1, r2, r3, r4 = st.columns(4)
-    with r1:
-        st.button("Trouver un lot", on_click=go_marketplace, use_container_width=True, key="dash_marketplace")
-    with r2:
-        st.button("Creer une annonce", on_click=go_annonces, use_container_width=True, key="dash_annonces")
-    with r3:
-        st.button("Nouvelle vente", on_click=go_stock, use_container_width=True, key="dash_stock")
-    with r4:
-        st.button("Voir les revenus", on_click=go_pnl, use_container_width=True, key="dash_pnl")
 
 
 # ---------------------------------------------------------------------------
@@ -467,9 +331,6 @@ def _render_dashboard() -> None:
 # ---------------------------------------------------------------------------
 def _render_sidebar() -> str:
     """Construit la sidebar et retourne la page selectionnee."""
-    from scrapers import bstock as bstock_scraper
-    from modules.parametres import get_param
-
     with st.sidebar:
         # Logo + tagline
         st.markdown(
@@ -491,23 +352,6 @@ def _render_sidebar() -> str:
             unsafe_allow_html=True,
         )
 
-        st.caption(f"Connecte en tant que **{current_user_nom()}**")
-
-        # Indicateur d'etat B-Stock (different selon env)
-        is_cloud = os.environ.get("ENVIRONMENT") == "cloud"
-        if is_cloud:
-            if get_param("api_bstock_email", ""):
-                st.success("B-Stock : API connectee")
-            else:
-                st.warning("B-Stock : identifiants non configures")
-        else:
-            if bstock_scraper.is_profile_configured():
-                st.success("B-Stock : connecte", icon=None)
-            else:
-                st.error("B-Stock : non configure", icon=None)
-
-        st.divider()
-
         page = st.radio(
             "Navigation",
             list(PAGES.keys()),
@@ -516,6 +360,7 @@ def _render_sidebar() -> str:
         )
 
         st.divider()
+        st.caption(f"Connecte : **{current_user_nom()}**")
         if st.button("Se deconnecter", use_container_width=True, key="sidebar_logout"):
             logout()
 
@@ -526,7 +371,6 @@ def _render_sidebar() -> str:
 # Boucle principale
 # ---------------------------------------------------------------------------
 def main() -> None:
-    # Injection du CSS global en premier (avant tout rendu)
     st.markdown(_GLOBAL_CSS, unsafe_allow_html=True)
 
     if not is_logged_in():
@@ -538,9 +382,7 @@ def main() -> None:
 
     main_area = st.container()
     with main_area:
-        if renderer is None:
-            _render_dashboard()
-        else:
+        if renderer is not None:
             renderer()
 
 

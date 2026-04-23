@@ -2,23 +2,10 @@
 """Package des modules metier de DeStock App."""
 
 from . import (
-    parametres,
-    marketplace,
-    encheres,
-    reception,
+    lots,
     stock,
-    annonces,
-    pnl,
-    alertes,
+    revenus,
+    parametres,
 )
 
-__all__ = [
-    "parametres",
-    "marketplace",
-    "encheres",
-    "reception",
-    "stock",
-    "annonces",
-    "pnl",
-    "alertes",
-]
+__all__ = ["lots", "stock", "revenus", "parametres"]
