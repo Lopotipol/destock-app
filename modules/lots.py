@@ -274,9 +274,11 @@ def _parse_excel(uploaded) -> list[dict]:
             retail = float(row.iloc[4]) if pd.notna(row.iloc[4]) else 0.0
             if not desc or desc.lower() == "nan":
                 continue
+            import re as _re
+            desc_clean = _re.sub(r"\*\*", "", desc).strip()
             articles.append({
                 "rang": rang,
-                "description": desc[:500],
+                "description": desc_clean[:500],
                 "condition": _map_etat_emoji(etat_raw),
                 "retail_price": retail,
                 "asin": "",

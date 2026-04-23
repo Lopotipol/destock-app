@@ -138,6 +138,9 @@ class Article(Base):
     prix_affiche = Column(Float, default=0.0)           # Prix mis sur LBC/Vinted/eBay
     teste_neuf = Column(Integer, default=0)             # 0 ou 1 (bonus +20% sur prix_cible)
     frais_vente = Column(Float, default=0.0)            # frais emballage / expedition
+    # Nouveau (v2.1) : workflow plateformes + test
+    plateformes_publie = Column(String(100), default="")  # "LBC,Vinted,eBay" comma-separated
+    commentaire_test = Column(Text, default="")           # "Fonctionne parfaitement" / defauts
 
     date_reception = Column(DateTime, nullable=True)
     notes = Column(Text, default="")
@@ -248,6 +251,8 @@ def _migrate_v2_columns() -> None:
             ("articles", "prix_affiche", "REAL DEFAULT 0"),
             ("articles", "teste_neuf", "INTEGER DEFAULT 0"),
             ("articles", "frais_vente", "REAL DEFAULT 0"),
+            ("articles", "plateformes_publie", "TEXT DEFAULT ''"),
+            ("articles", "commentaire_test", "TEXT DEFAULT ''"),
             ("ventes", "commission_pct", "REAL DEFAULT 0"),
             ("ventes", "commission_montant", "REAL DEFAULT 0"),
             ("ventes", "frais_supplementaires", "REAL DEFAULT 0"),
