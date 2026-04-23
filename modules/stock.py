@@ -20,13 +20,31 @@ import streamlit as st
 from database import Article, Lot, Vente, get_session
 
 
-COEFFS_ETAT = {
+# Etats B-Stock (utilises pour l'etat initial du manifeste, lecture seule)
+COEFFS_ETAT_BSTOCK = {
     "Warehouse Damage": 0.65,
     "Customer Damage":  0.45,
     "Carrier Damage":   0.50,
     "Defective":        0.30,
 }
+
+# Etats style Vinted (utilises pour l'etat constate apres test, editable)
+COEFFS_ETAT = {
+    "Neuf":            0.85,
+    "Tres bon etat":   0.65,
+    "Bon etat":        0.50,
+    "Satisfaisant":    0.35,
+    "HS":              0.15,
+}
 ETATS_LIST = list(COEFFS_ETAT.keys())
+
+# Mapping B-Stock -> Vinted par defaut (apres import)
+BSTOCK_TO_VINTED = {
+    "Warehouse Damage": "Tres bon etat",
+    "Customer Damage":  "Bon etat",
+    "Carrier Damage":   "Bon etat",
+    "Defective":        "HS",
+}
 
 COMMISSIONS = {
     "LBC":     0.0,
@@ -46,7 +64,13 @@ STATUT_LABEL = {
 
 
 def _calc_prix_cible(retail: float, condition: str, teste_neuf: bool = False) -> float:
-    coeff = COEFFS_ETAT.get(condition, 0.45)
+    # Priorite aux etats Vinted, fallback sur B-Stock pour compatibilite
+    if condition in COEFFS_ETAT:
+        coeff = COEFFS_ETAT[condition]
+    elif condition in COEFFS_ETAT_BSTOCK:
+        coeff = COEFFS_ETAT_BSTOCK[condition]
+    else:
+        coeff = 0.45
     prix = retail * coeff
     if teste_neuf:
         prix *= 1.20
@@ -98,10 +122,13 @@ def _load_articles(lot_id: str) -> tuple[list[dict], dict]:
         }
         arts_data = []
         for a in arts:
-            # condition   = etat initial du manifeste (jamais modifie apres import)
-            # condition_reelle = etat constate par l'utilisateur (modifiable)
+            # condition   = etat initial du manifeste B-Stock (readonly)
+            # condition_reelle = etat constate style Vinted (editable)
             cond_init = a.condition or "Customer Damage"
-            cond_reelle = a.condition_reelle or cond_init
+            # Si condition_reelle vide -> on propose le mapping auto B-Stock -> Vinted
+            cond_reelle = a.condition_reelle
+            if not cond_reelle:
+                cond_reelle = BSTOCK_TO_VINTED.get(cond_init, "Bon etat")
             arts_data.append({
                 "id": a.id,
                 "lpn": a.lpn or "",
