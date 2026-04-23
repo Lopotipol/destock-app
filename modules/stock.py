@@ -140,6 +140,23 @@ def _delete_article(art_id: int) -> None:
         session.close()
 
 
+def _delete_lot(lot_id: str) -> tuple[int, int]:
+    """Supprime un lot + tous ses articles + ventes liees. Retourne (nb_arts, nb_ventes)."""
+    session = get_session()
+    try:
+        arts = session.query(Article).filter_by(lot_id=lot_id).all()
+        art_ids = [a.id for a in arts]
+        n_ventes = 0
+        if art_ids:
+            n_ventes = session.query(Vente).filter(Vente.article_id.in_(art_ids)).delete(synchronize_session=False)
+        n_arts = session.query(Article).filter_by(lot_id=lot_id).delete()
+        session.query(Lot).filter_by(lot_id=lot_id).delete()
+        session.commit()
+        return n_arts, n_ventes
+    finally:
+        session.close()
+
+
 def _enregistrer_vente(art_id: int, prix: float, canal: str,
                         commission_pct: float, frais_supp: float) -> None:
     session = get_session()
@@ -502,6 +519,39 @@ def render() -> None:
 
     # --- Ajout manuel ---
     _section_add_manual(lot["lot_id"])
+
+    # --- Zone dangereuse : supprimer le lot ---
+    with st.expander("Zone dangereuse — Supprimer ce lot", expanded=False):
+        st.warning(
+            f"La suppression du lot **{lot['nom']}** effacera definitivement "
+            f"ses {stats['nb_articles']} articles et toutes les ventes liees."
+        )
+        confirm_key = f"stk_del_lot_confirm_{lot['lot_id']}"
+        if st.button(
+            "Supprimer ce lot",
+            key=f"stk_del_lot_{lot['lot_id']}",
+            use_container_width=True,
+        ):
+            st.session_state[confirm_key] = True
+        if st.session_state.get(confirm_key):
+            st.error("Cette action est irreversible.")
+            dc1, dc2 = st.columns(2)
+            if dc1.button(
+                f"OUI, supprimer {lot['nom'][:30]}",
+                key=f"stk_del_lot_ok_{lot['lot_id']}",
+                type="primary",
+                use_container_width=True,
+            ):
+                n_arts, n_ventes = _delete_lot(lot["lot_id"])
+                st.session_state.pop(confirm_key, None)
+                st.session_state.pop("lot_selectionne", None)
+                st.success(
+                    f"Lot supprime : {n_arts} articles et {n_ventes} ventes effaces."
+                )
+                st.rerun()
+            if dc2.button("Annuler", key=f"stk_del_lot_no_{lot['lot_id']}", use_container_width=True):
+                st.session_state.pop(confirm_key, None)
+                st.rerun()
 
     # --- Liste compacte avec expanders ---
     if not filtered:

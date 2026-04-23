@@ -98,6 +98,11 @@ def _section_liste() -> None:
         st.info("Aucun lot. Creez-en un ci-dessous.")
         return
 
+    def _go_to_stock(lot_id: str) -> None:
+        """Callback : change la page active et pre-selectionne le lot."""
+        st.session_state["lot_selectionne"] = lot_id
+        st.session_state["sidebar_nav"] = "Mon stock"
+
     for l in lots:
         with st.container():
             c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 1, 1])
@@ -110,10 +115,13 @@ def _section_liste() -> None:
             benef = l["benefice"]
             delta_color = "normal" if benef >= 0 else "inverse"
             c5.metric("Benefice", f"{benef:,.0f} EUR", delta_color=delta_color)
-            if st.button("Voir le stock", key=f"lot_view_{l['lot_id']}", use_container_width=True):
-                st.session_state["lot_selectionne"] = l["lot_id"]
-                st.session_state["sidebar_nav"] = "Mon stock"
-                st.rerun()
+            st.button(
+                "Voir le stock",
+                key=f"lot_view_{l['lot_id']}",
+                use_container_width=True,
+                on_click=_go_to_stock,
+                args=(l["lot_id"],),
+            )
             st.divider()
 
 
