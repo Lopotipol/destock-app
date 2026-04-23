@@ -41,8 +41,8 @@ def init_env_params() -> None:
             print(f"Set {param_key} from env")
 
 
-# Modules metier (v2 simplifie : 3 ecrans + reglages)
-from modules import lots, stock, revenus, parametres
+# Modules metier (v2 simplifie : 4 ecrans + reglages)
+from modules import accueil, lots, stock, revenus, parametres
 
 
 # ---------------------------------------------------------------------------
@@ -319,6 +319,7 @@ def info_card(title: str, content: str, color: str = "#2563eb") -> None:
 # Table de routage : nom affiche -> fonction du module a appeler
 # ---------------------------------------------------------------------------
 PAGES = {
+    "Accueil":     accueil.render,
     "Mes lots":    lots.render,
     "Mon stock":   stock.render,
     "Mes revenus": revenus.render,
