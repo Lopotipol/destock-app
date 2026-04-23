@@ -156,8 +156,15 @@ def _metric_card(label: str, value: str, color: str = "#2563eb") -> str:
 # Entree principale
 # ---------------------------------------------------------------------------
 def render() -> None:
-    st.title("Tableau de bord")
-    st.caption("Vue d'ensemble de votre activite en temps reel")
+    st.markdown(
+        """
+        <div class='module-header'>
+          <div class='module-title'>Tableau de bord</div>
+          <div class='module-subtitle'>Vue d'ensemble de votre activite en temps reel</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     snap = _load_snapshot()
 

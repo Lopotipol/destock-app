@@ -365,7 +365,27 @@ def _insert_articles(lot_id: str, articles: list[dict], cout_total: float) -> tu
 # Entree principale
 # ---------------------------------------------------------------------------
 def render() -> None:
-    st.title("Mes lots")
+    st.markdown(
+        """
+        <div class='module-header'>
+          <div class='module-title'>Mes lots</div>
+          <div class='module-subtitle'>Suivi de tous vos achats B-Stock — creation, import, stats</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Stats globales
+    lots_stats = _load_lots_stats()
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Lots actifs", len(lots_stats))
+    m2.metric("Total investi", f"{sum(l['frais_total'] for l in lots_stats):,.0f} EUR")
+    m3.metric("CA encaisse", f"{sum(l['ca_encaisse'] for l in lots_stats):,.0f} EUR")
+    benef_tot = sum(l["benefice"] for l in lots_stats)
+    m4.metric("Benefice net", f"{benef_tot:,.0f} EUR",
+               delta_color="normal" if benef_tot >= 0 else "inverse")
+    st.divider()
+
     _section_liste()
     st.divider()
     _section_creer()

@@ -192,7 +192,15 @@ def _section_ventes(ventes) -> None:
 # Entree principale
 # ---------------------------------------------------------------------------
 def render() -> None:
-    st.title("Mes revenus")
+    st.markdown(
+        """
+        <div class='module-header'>
+          <div class='module-title'>Mes revenus</div>
+          <div class='module-subtitle'>Vue financiere complete — investissement, CA, commissions, benefice</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     lots, articles, ventes = _load_all()
 
     _section_globale(lots, articles, ventes)
