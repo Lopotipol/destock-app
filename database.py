@@ -311,6 +311,13 @@ def init_db():
 
     seed_templates()
 
+    # Tables eBay (config OAuth + listings + ventes)
+    try:
+        from modules.ebay_manager import init_ebay_tables
+        init_ebay_tables()
+    except Exception as exc:
+        print(f"[init_db] init_ebay_tables a echoue : {exc}")
+
 
 # ---------------------------------------------------------------------------
 # Templates d'annonces par defaut

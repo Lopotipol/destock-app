@@ -244,7 +244,7 @@ def _render_card(art: dict) -> None:
     )
 
     # Boutons sous la card
-    bc1, bc2, bc3, _ = st.columns([1, 1, 1, 3])
+    bc1, bc2, bc3, bc4, _ = st.columns([1, 1, 1, 1, 2])
     with bc1:
         if st.button("Modifier", key=f"art_mod_{art_id}", use_container_width=True):
             st.session_state[f"art_edit_{art_id}"] = not st.session_state.get(f"art_edit_{art_id}", False)
@@ -252,9 +252,25 @@ def _render_card(art: dict) -> None:
         with bc2:
             if st.button("Vendu", key=f"art_vendu_{art_id}", use_container_width=True, type="primary"):
                 st.session_state[f"art_sell_{art_id}"] = True
-    with bc3:
+        with bc3:
+            if st.button("🛒 eBay", key=f"art_ebay_{art_id}", use_container_width=True):
+                st.session_state[f"art_ebay_{art_id}_open"] = not st.session_state.get(f"art_ebay_{art_id}_open", False)
+    with bc4:
         if st.button("Supprimer", key=f"art_del_{art_id}", use_container_width=True):
             st.session_state[f"art_del_confirm_{art_id}"] = True
+
+    # Formulaire eBay
+    if st.session_state.get(f"art_ebay_{art_id}_open"):
+        from modules.ebay_manager import render_ebay_publish
+        s = get_session()
+        try:
+            art_obj = s.query(Article).filter_by(id=art_id).first()
+            if art_obj:
+                s.expunge(art_obj)
+        finally:
+            s.close()
+        if art_obj:
+            render_ebay_publish(art_obj)
 
     # Formulaire edit
     if st.session_state.get(f"art_edit_{art_id}"):

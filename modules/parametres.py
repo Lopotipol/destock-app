@@ -746,8 +746,10 @@ def _section_templates() -> None:
 def render() -> None:
     st.title("Reglages")
 
-    tab_profil, tab_business, tab_api, tab_compte, tab_scoring, tab_tpl = st.tabs(
-        ["Profil juridique", "Business", "Connexions & API", "Compte", "Scoring & Filtres", "Templates annonces"]
+    (tab_profil, tab_business, tab_api, tab_compte,
+     tab_scoring, tab_tpl, tab_ebay) = st.tabs(
+        ["Profil juridique", "Business", "Connexions & API", "Compte",
+         "Scoring & Filtres", "Templates annonces", "🛒 eBay"]
     )
     with tab_profil:
         _section_profil_juridique()
@@ -761,3 +763,6 @@ def render() -> None:
         _section_scoring()
     with tab_tpl:
         _section_templates()
+    with tab_ebay:
+        from modules.ebay_manager import render_ebay_settings
+        render_ebay_settings()

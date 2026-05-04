@@ -37,6 +37,13 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 EBAY_API_KEY = os.getenv("EBAY_API_KEY", "")
 
+# eBay OAuth (Sandbox + Production)
+EBAY_CLIENT_ID_SANDBOX = os.getenv("EBAY_CLIENT_ID_SANDBOX", "")
+EBAY_CLIENT_SECRET_SANDBOX = os.getenv("EBAY_CLIENT_SECRET_SANDBOX", "")
+EBAY_CLIENT_ID_PROD = os.getenv("EBAY_CLIENT_ID_PROD", "")
+EBAY_CLIENT_SECRET_PROD = os.getenv("EBAY_CLIENT_SECRET_PROD", "")
+EBAY_DEV_ID = os.getenv("EBAY_DEV_ID", "")
+
 # ---------------------------------------------------------------------------
 # Valeurs par defaut injectees dans la table `parametres` lors du 1er run
 # ---------------------------------------------------------------------------

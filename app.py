@@ -42,7 +42,7 @@ def init_env_params() -> None:
 
 
 # Modules metier (v2 simplifie : 4 ecrans + reglages)
-from modules import accueil, lots, stock, revenus, parametres
+from modules import accueil, lots, stock, revenus, parametres, page_ebay
 
 
 # ---------------------------------------------------------------------------
@@ -426,6 +426,7 @@ PAGES = {
     "Accueil":     accueil.render,
     "Mes lots":    lots.render,
     "Mon stock":   stock.render,
+    "🛒 eBay":     page_ebay.render,
     "Mes revenus": revenus.render,
     "Reglages":    parametres.render,
 }
