@@ -79,6 +79,43 @@ def import_backup(zip_bytes: bytes) -> dict:
     return counts
 
 
+def import_json_backup(json_data: dict) -> dict:
+    """
+    Importe un dictionnaire JSON de backup dans la base.
+    Retourne {table: nb_lignes_importees}.
+    """
+    from database import Lot, Article, Vente, Annonce, Template, Reception, AlerteLog, PrixCache, User
+    s = get_session()
+    counts: dict[str, int] = {}
+    try:
+        for model, key in [
+            (Parametre, "parametres"),
+            (User, "users"),
+            (Lot, "lots"),
+            (Article, "articles"),
+            (Reception, "receptions"),
+            (Vente, "ventes"),
+            (Annonce, "annonces"),
+            (AlerteLog, "alertes_log"),
+            (PrixCache, "prix_cache"),
+            (Template, "templates"),
+        ]:
+            n = 0
+            rows = json_data.get(key, [])
+            total = len(rows)
+            for i, row in enumerate(rows):
+                try:
+                    s.merge(model(**row))
+                    n += 1
+                except Exception as e:
+                    pass
+            counts[key] = n
+        s.commit()
+    finally:
+        s.close()
+    return counts
+
+
 # ---------------------------------------------------------------------------
 # Helpers generiques de lecture/ecriture des parametres
 # ---------------------------------------------------------------------------
@@ -370,6 +407,10 @@ def _section_compte() -> None:
                     st.rerun()
                 except Exception as exc:
                     st.error(f"Erreur import : {type(exc).__name__}: {exc}")
+
+    # --- Import backup JSON ---
+    st.divider()
+    _section_import()
 
 
 # ---------------------------------------------------------------------------
@@ -738,6 +779,78 @@ def _section_templates() -> None:
         seed_templates()
         st.success("Tous les templates reinitialises aux valeurs par defaut.")
         st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Section Import / Restauration
+# ---------------------------------------------------------------------------
+def _section_import_restauration() -> None:
+    st.subheader("Import / Restauration")
+    st.caption(
+        "Importez un fichier backup.json pour restaurer articles, lots, ventes, "
+        "et parametres. Les donnees existantes seront fusionnees."
+    )
+
+    uploaded_file = st.file_uploader(
+        "Choisir un fichier backup.json",
+        type=["json"],
+        key="import_backup_uploader",
+    )
+
+    if uploaded_file is not None:
+        try:
+            json_data = json.loads(uploaded_file.read().decode("utf-8"))
+        except Exception as exc:
+            st.error(f"Erreur lecture JSON: {exc}")
+            return
+
+        if st.button("Lancer l'import", type="primary", key="import_backup_go"):
+            with st.spinner("Import en cours..."):
+                counts = import_json_backup(json_data)
+
+            st.success("Import termine!")
+            st.write("**Donnees importees :**")
+            cols = st.columns(3)
+            for i, (table, count) in enumerate(counts.items()):
+                if i % 3 == 0:
+                    col = cols[0]
+                elif i % 3 == 1:
+                    col = cols[1]
+                else:
+                    col = cols[2]
+                with col:
+                    st.metric(table, count)
+
+
+# ---------------------------------------------------------------------------
+# Section Import JSON
+# ---------------------------------------------------------------------------
+def _section_import() -> None:
+    st.subheader("Import backup")
+    uploaded = st.file_uploader("Fichier backup JSON", type="json")
+    if uploaded and st.button("Importer"):
+        import json
+        from database import get_session as _gs
+        from database import Lot, Article, Vente
+        data = json.load(uploaded)
+        session = _gs()
+        try:
+            for lot in data.get("lots", []):
+                session.merge(Lot(**{k: v for k, v in lot.items()
+                              if hasattr(Lot, k)}))
+            for art in data.get("articles", []):
+                session.merge(Article(**{k: v for k, v in art.items()
+                              if hasattr(Article, k)}))
+            for vente in data.get("ventes", []):
+                session.merge(Vente(**{k: v for k, v in vente.items()
+                              if hasattr(Vente, k)}))
+            session.commit()
+            st.success(f"Import OK : {len(data.get('articles',[]))} articles")
+        except Exception as e:
+            session.rollback()
+            st.error(f"Erreur : {e}")
+        finally:
+            session.close()
 
 
 # ---------------------------------------------------------------------------
