@@ -35,9 +35,29 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///destock.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-_connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+# Diagnostic boot : log de l'host/port utilise (sans le mot de passe)
+# pour verifier que Render a bien pris la nouvelle DATABASE_URL.
+try:
+    from urllib.parse import urlparse
+    _parsed = urlparse(DATABASE_URL)
+    print(f"[database] DATABASE_URL host={_parsed.hostname} port={_parsed.port} scheme={_parsed.scheme}")
+except Exception as _exc:
+    print(f"[database] parse DATABASE_URL failed: {_exc}")
 
-engine = create_engine(DATABASE_URL, connect_args=_connect_args, future=True)
+if DATABASE_URL.startswith("sqlite"):
+    _connect_args = {"check_same_thread": False}
+    engine = create_engine(DATABASE_URL, connect_args=_connect_args, future=True)
+else:
+    # PostgreSQL (prod) : pool_pre_ping evite les connexions zombies,
+    # pool_recycle force la rotation avant le timeout cote Supabase pooler,
+    # connect_timeout coupe court si le port est filtre (cf. erreur "Network is unreachable").
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        connect_args={"connect_timeout": 10},
+        future=True,
+    )
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
 
