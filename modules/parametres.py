@@ -48,6 +48,25 @@ def export_backup() -> bytes:
     return buf.getvalue()
 
 
+def _import_rows(session, model, rows) -> int:
+    """Insert/merge ligne par ligne en isolant chaque echec dans un savepoint.
+
+    Sur Postgres, une violation de contrainte (FK, unique, etc.) empoisonne
+    la transaction courante : tout commit ulterieur echoue. Le savepoint
+    (begin_nested) permet de rollback uniquement la ligne fautive et de
+    continuer avec les suivantes.
+    """
+    n = 0
+    for row in rows:
+        try:
+            with session.begin_nested():
+                session.merge(model(**row))
+            n += 1
+        except Exception:
+            pass
+    return n
+
+
 def import_backup(zip_bytes: bytes) -> dict:
     """Importe un ZIP de backup. Retourne {table: nb_lignes_importees}."""
     from database import Lot, Article, Vente, Annonce, Template
@@ -57,6 +76,8 @@ def import_backup(zip_bytes: bytes) -> dict:
     s = get_session()
     counts: dict[str, int] = {}
     try:
+        # Ordre : parents avant enfants (FK). Commit apres chaque table pour
+        # que les enfants voient les parents deja persistes en base.
         for model, key in [
             (Lot, "lots"),
             (Article, "articles"),
@@ -65,15 +86,8 @@ def import_backup(zip_bytes: bytes) -> dict:
             (Parametre, "parametres"),
             (Template, "templates"),
         ]:
-            n = 0
-            for row in data.get(key, []):
-                try:
-                    s.merge(model(**row))
-                    n += 1
-                except Exception:
-                    pass
-            counts[key] = n
-        s.commit()
+            counts[key] = _import_rows(s, model, data.get(key, []))
+            s.commit()
     finally:
         s.close()
     return counts
@@ -100,17 +114,8 @@ def import_json_backup(json_data: dict) -> dict:
             (PrixCache, "prix_cache"),
             (Template, "templates"),
         ]:
-            n = 0
-            rows = json_data.get(key, [])
-            total = len(rows)
-            for i, row in enumerate(rows):
-                try:
-                    s.merge(model(**row))
-                    n += 1
-                except Exception as e:
-                    pass
-            counts[key] = n
-        s.commit()
+            counts[key] = _import_rows(s, model, json_data.get(key, []))
+            s.commit()
     finally:
         s.close()
     return counts
